@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rayguiexample"
+version = "0.1"
+requires-python = "==3.12.*"
+dependencies = [
+    "raylib"
+]
