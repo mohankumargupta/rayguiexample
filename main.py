@@ -1,3 +1,4 @@
+from queue import Queue
 from threading import Thread
 from pyray import *
 from raylib import *
@@ -10,13 +11,22 @@ class ProgramState(Enum):
     UPLOAD = 3,
     DOWNLOADING = 4,
     UPLOADING = 5
-    
+
+class WorkerState(Enum):
+    IDLE = 1,
+    DOWNLOADING = 2,
+    UPDATING = 3
+
 # control variables
 downloadPressed = False
 uploadPressed = False
 downloading = False
 uploading = False
 
+queue = Queue()
+progressQueue = Queue()
+
+'''
 def download():
     while True:
         #global downloadPressed
@@ -37,6 +47,24 @@ downloadthread = Thread(target=download, daemon=True)
 downloadthread.start()
 downloadthread = Thread(target=upload, daemon=True)
 downloadthread.start()
+'''
+
+class Worker(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+
+    def run(self):
+        global programState
+        while True:
+            if programState == ProgramState.DOWNLOADING:
+                print("downloading")
+                programState = ProgramState.MAIN
+            sleep(0.1)       
+
+programState = ProgramState.MAIN
+worker = Worker()
+worker.daemon = True
+worker.start()
 
 init_window(800, 550, "VSCode Portable Downloader")
 set_target_fps(20)
@@ -49,7 +77,7 @@ nicefont = load_font_ex("fonts/inter/InterVariable.ttf", 36, None, 0)
 #defaultfont = get_font_default()
 gui_set_style(BUTTON, TEXT_ALIGNMENT_VERTICAL, TEXT_ALIGN_BOTTOM)
 
-programState = ProgramState.MAIN
+
 
 while not window_should_close():
     begin_drawing()
@@ -81,9 +109,7 @@ while not window_should_close():
             gui_set_font(font)
             gui_set_style(DEFAULT, TEXT_SIZE, 48)
             if gui_button(Rectangle(50, 350, 650,100), "Download"):
-                pass
-
-
+                programState = ProgramState.DOWNLOADING
 
         case ProgramState.UPLOAD:
             pass
