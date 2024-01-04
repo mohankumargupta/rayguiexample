@@ -1,9 +1,13 @@
-from queue import Queue
+from os import mkdir
+#from queue import Queue
 from threading import Thread
+from zipfile import ZipFile
 from pyray import *
 from raylib import *
 from time import sleep
 from enum import Enum
+import requests
+from pathlib import Path
 
 class ProgramState(Enum):
     MAIN = 1,
@@ -22,9 +26,10 @@ downloadPressed = False
 uploadPressed = False
 downloading = False
 uploading = False
+vscodedownloadfolder = ""
 
-queue = Queue()
-progressQueue = Queue()
+#queue = Queue()
+#progressQueue = Queue()
 
 '''
 def download():
@@ -50,14 +55,59 @@ downloadthread.start()
 '''
 
 class Worker(Thread):
+    VSCODE_URL = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-archive"
+    
     def __init__(self):
         Thread.__init__(self)
+
+    def download_file(url: str, output_file: Path):
+        # NOTE the stream=True parameter below
+        with requests.get(url, stream=True) as r:
+            if r.status_code != 200:
+                print("problem downloading")
+            r.raise_for_status()
+            #with open(output_file, 'wb') as f:
+            with output_file.open('wb') as f:
+                for chunk in r.iter_content(chunk_size=4096): 
+                    # If you have chunk encoded response uncomment if
+                    # and set chunk_size parameter to None.
+                    #if chunk: 
+                    f.write(chunk)
+
+    def mkdir(dirname):
+        Path(dirname).mkdir(parents=True, exist_ok=False)
+
+    def unzip(filename: Path, dirname: Path):
+        with ZipFile(filename) as f:
+            f.extractall(dirname)
+
+    def makeDataDirectories(dirname):
+        datadir = Path(dirname).joinpath("data")
+        tmpdir = datadir.joinpath("tmp")
+        mkdir(datadir)
+        mkdir(tmpdir)
+
+    def downloadsDirectory():
+        homedirectory = Path.home()
+        downloads = homedirectory.joinpath("Downloads")
+        return downloads
+
+    def download(self):
+        #global vscodedownloadfolder        
+        print("downloading")
+        print(vscodedownloadfolder)
+
+    def upload(self):
+        print("uploading")
 
     def run(self):
         global programState
         while True:
             if programState == ProgramState.DOWNLOADING:
-                print("downloading")
+                self.download()
+                programState = ProgramState.MAIN
+            elif programState == ProgramState.UPLOADING:
+                self.upload()
                 programState = ProgramState.MAIN
             sleep(0.1)       
 
@@ -104,7 +154,7 @@ while not window_should_close():
 
             gui_set_font(nicefont)
             gui_set_style(DEFAULT, TEXT_SIZE, 36)            
-            gui_text_box(Rectangle(300,150,400,100),"", 20, True)
+            gui_text_box(Rectangle(300,150,400,100),vscodedownloadfolder, 20, True)
 
             gui_set_font(font)
             gui_set_style(DEFAULT, TEXT_SIZE, 48)
