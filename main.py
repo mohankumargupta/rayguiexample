@@ -26,7 +26,11 @@ downloadPressed = False
 uploadPressed = False
 downloading = False
 uploading = False
-vscodedownloadfolder = ""
+vscodedownloadfolder = ffi.new("char[32]")
+pointer = ffi.addressof(vscodedownloadfolder)
+# = ffi.new("char[32]", b" "*32)
+#vscodedownloadfolder = ffi.new("char *", allocate)
+#vscodedownloadfolder = ""
 
 #queue = Queue()
 #progressQueue = Queue()
@@ -95,7 +99,7 @@ class Worker(Thread):
     def download(self):
         #global vscodedownloadfolder        
         print("downloading")
-        print(vscodedownloadfolder)
+        print(ffi.string(vscodedownloadfolder))
 
     def upload(self):
         print("uploading")
@@ -154,7 +158,8 @@ while not window_should_close():
 
             gui_set_font(nicefont)
             gui_set_style(DEFAULT, TEXT_SIZE, 36)            
-            gui_text_box(Rectangle(300,150,400,100),vscodedownloadfolder, 20, True)
+            
+            gui_text_box(Rectangle(300,150,400,100), ffi.cast("char *", pointer), 20, True)
 
             gui_set_font(font)
             gui_set_style(DEFAULT, TEXT_SIZE, 48)
