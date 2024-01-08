@@ -9,6 +9,8 @@ from enum import Enum
 import requests
 from pathlib import Path
 
+VSCODE_URL = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-archive"
+
 class ProgramState(Enum):
     MAIN = 1,
     DOWNLOAD = 2,
@@ -26,45 +28,22 @@ downloadPressed = False
 uploadPressed = False
 downloading = False
 uploading = False
-vscodedownloadfolder = ffi.new("char[32]")
-pointer = ffi.addressof(vscodedownloadfolder)
-# = ffi.new("char[32]", b" "*32)
-#vscodedownloadfolder = ffi.new("char *", allocate)
-#vscodedownloadfolder = ""
+cffibuffer = ffi.new("char[32]")
+vsdownloadFolder = ""
+pointer = ffi.addressof(cffibuffer)
+progress = 0
+cffiprogress = ffi.new("float *")
+cffiprogress[0] = 0.9
 
-#queue = Queue()
-#progressQueue = Queue()
 
-'''
-def download():
-    while True:
-        #global downloadPressed
-        #if downloadPressed:
-        #    print("download")
-        #    downloadPressed = False
-        sleep(0.1)
-
-def upload():
-    while True:
-        #global uploadPressed
-        #if uploadPressed:
-        #    print("upload")
-        #    uploadPressed = False
-        sleep(0.1)
-
-downloadthread = Thread(target=download, daemon=True)
-downloadthread.start()
-downloadthread = Thread(target=upload, daemon=True)
-downloadthread.start()
-'''
-
-class Worker(Thread):
-    VSCODE_URL = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-archive"
-    
+class Worker(Thread): 
     def __init__(self):
         Thread.__init__(self)
 
     def download_file(url: str, output_file: Path):
+        global cffiprogress
+        bytesDownload = 0
+        cffiprogress[0]= bytesDownload
         # NOTE the stream=True parameter below
         with requests.get(url, stream=True) as r:
             if r.status_code != 200:
@@ -76,7 +55,7 @@ class Worker(Thread):
                     # If you have chunk encoded response uncomment if
                     # and set chunk_size parameter to None.
                     #if chunk: 
-                    f.write(chunk)
+                    bytesDownload = bytesDownload + f.write(chunk)
 
     def mkdir(dirname):
         Path(dirname).mkdir(parents=True, exist_ok=False)
@@ -96,10 +75,22 @@ class Worker(Thread):
         downloads = homedirectory.joinpath("Downloads")
         return downloads
 
+    def vscodeRealDownloadURL(self):
+        response = requests.get(VSCODE_URL, allow_redirects=False)
+        url = response.headers.get('Location')
+        return url
+
+    def vscodeDownloadSize(self, url):
+        response = requests.head(url)
+        return response.headers.get('content-length')
+
     def download(self):
-        #global vscodedownloadfolder        
-        print("downloading")
-        print(ffi.string(vscodedownloadfolder))
+        global cffiprogress
+        cffiprogress[0] = 0.1
+        downloadURL = self.vscodeRealDownloadURL()
+        print(downloadURL)
+        size = self.vscodeDownloadSize(downloadURL)
+        print(size)
 
     def upload(self):
         print("uploading")
@@ -109,10 +100,8 @@ class Worker(Thread):
         while True:
             if programState == ProgramState.DOWNLOADING:
                 self.download()
-                programState = ProgramState.MAIN
             elif programState == ProgramState.UPLOADING:
                 self.upload()
-                programState = ProgramState.MAIN
             sleep(0.1)       
 
 programState = ProgramState.MAIN
@@ -130,8 +119,6 @@ fontsmall = load_font_ex("fonts/SourceCodePro-Regular.ttf",16, None, 0)
 nicefont = load_font_ex("fonts/inter/InterVariable.ttf", 36, None, 0)
 #defaultfont = get_font_default()
 gui_set_style(BUTTON, TEXT_ALIGNMENT_VERTICAL, TEXT_ALIGN_BOTTOM)
-
-
 
 while not window_should_close():
     begin_drawing()
@@ -164,7 +151,17 @@ while not window_should_close():
             gui_set_font(font)
             gui_set_style(DEFAULT, TEXT_SIZE, 48)
             if gui_button(Rectangle(50, 350, 650,100), "Download"):
-                programState = ProgramState.DOWNLOADING
+                vsdownloadFolder = ffi.string(cffibuffer)
+                downloads = Worker.downloadsDirectory()
+                path = downloads.joinpath(vsdownloadFolder.decode('utf-8'))
+                if path.exists():
+                   pass
+                else:
+                    programState = ProgramState.DOWNLOADING
+
+        case ProgramState.DOWNLOADING:
+            gui_label(Rectangle(50, 50, 500, 50), "Downloading VSCode")
+            gui_progress_bar(Rectangle(350,350,200,20), "Downloading...", f"{100 * cffiprogress[0]:.1f}%", cffiprogress, 0.0, 1.0)
 
         case ProgramState.UPLOAD:
             pass
