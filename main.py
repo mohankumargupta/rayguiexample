@@ -33,31 +33,38 @@ vsdownloadFolder = ""
 pointer = ffi.addressof(cffibuffer)
 progress = 0
 cffiprogress = ffi.new("float *")
-cffiprogress[0] = 0.9
+cffiprogress[0] = 0.0
+size = 0
+sizeMB=0
 
 
 class Worker(Thread): 
     def __init__(self):
         Thread.__init__(self)
 
-    def download_file(url: str, output_file: Path):
-        global cffiprogress
+    def download_file(self, url: str, output_dir: Path):
+        global cffiprogress, size, sizeMB
         bytesDownload = 0
-        cffiprogress[0]= bytesDownload
+        cffiprogress[0]= 0.0
         # NOTE the stream=True parameter below
         with requests.get(url, stream=True) as r:
             if r.status_code != 200:
                 print("problem downloading")
             r.raise_for_status()
             #with open(output_file, 'wb') as f:
+            output_dir.mkdir()
+            output_file = output_dir.joinpath("vscode.zip")
+            print(output_file)
             with output_file.open('wb') as f:
                 for chunk in r.iter_content(chunk_size=4096): 
                     # If you have chunk encoded response uncomment if
                     # and set chunk_size parameter to None.
                     #if chunk: 
-                    bytesDownload = bytesDownload + f.write(chunk)
+                    chunkssize = f.write(chunk)
+                    bytesDownload = bytesDownload + chunkssize
+                    cffiprogress[0] = float(bytesDownload)/size
 
-    def mkdir(dirname):
+    def mkdir(self, dirname):
         Path(dirname).mkdir(parents=True, exist_ok=False)
 
     def unzip(filename: Path, dirname: Path):
@@ -82,15 +89,19 @@ class Worker(Thread):
 
     def vscodeDownloadSize(self, url):
         response = requests.head(url)
-        return response.headers.get('content-length')
+        return int(response.headers.get('content-length'))
 
     def download(self):
-        global cffiprogress
+        global cffiprogress, path, size, sizeMB
+        print(path)
         cffiprogress[0] = 0.1
         downloadURL = self.vscodeRealDownloadURL()
         print(downloadURL)
         size = self.vscodeDownloadSize(downloadURL)
         print(size)
+        sizeMB = int(size/(1024*1024))
+        print(sizeMB)
+        self.download_file(downloadURL, path)
 
     def upload(self):
         print("uploading")
@@ -100,9 +111,11 @@ class Worker(Thread):
         while True:
             if programState == ProgramState.DOWNLOADING:
                 self.download()
+                programState = ProgramState.MAIN
             elif programState == ProgramState.UPLOADING:
                 self.upload()
-            sleep(0.1)       
+                programState = ProgramState.MAIN
+            sleep(0.05)       
 
 programState = ProgramState.MAIN
 worker = Worker()
@@ -162,6 +175,7 @@ while not window_should_close():
         case ProgramState.DOWNLOADING:
             gui_label(Rectangle(50, 50, 500, 50), "Downloading VSCode")
             gui_progress_bar(Rectangle(350,350,200,20), "Downloading...", f"{100 * cffiprogress[0]:.1f}%", cffiprogress, 0.0, 1.0)
+            #gui_progress_bar(Rectangle(350,350,200,20), f"{cffiprogress[0]}MB/{sizeMB}MB", "", cffiprogress, 0.0, 1.0)
 
         case ProgramState.UPLOAD:
             pass
